@@ -28,9 +28,5 @@ Assuming everything is set up correctly, metrics will start coming in:
 
 # Todo
 
-- Make requirements not installed in a really stupid way
 - Add a release .tar or .zip
-- Make namepsace configurable
-- Make metrics to capture configurable
 - Add memory usage metric
-- Remove region from the env vars
