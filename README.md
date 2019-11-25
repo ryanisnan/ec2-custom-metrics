@@ -12,11 +12,15 @@ Clone this repository:
 
 Install the requirements:
 
-`pip install psutil requests boto3`
+`virtualenv venv && source venv/bin/activate`
+`pip install -r requirements.txt`
+
+Test it:
+`python capture_metrics.py --namespace MyNamespace --disk-used`
 
 Set it on a cron:
 
-`*/5 * * * * AWS_DEFAULT_REGION=us-west-1 python capture_metrics.py`
+`*/5 * * * * python capture_metrics.py --namespace MyNamespace --disk-used`
 
 Assuming everything is set up correctly, metrics will start coming in:
 
