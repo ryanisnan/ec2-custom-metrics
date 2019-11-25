@@ -2,6 +2,7 @@ import psutil
 import requests
 import os
 import boto3
+import argparse
 
 
 INSTANCE_ID = requests.get('http://169.254.169.254/latest/meta-data/instance-id').text
@@ -90,9 +91,14 @@ class MaxDiskUsedMetric(Metric):
 
 
 if __name__ == "__main__":
-    metrics_to_capture = [
-        MaxDiskUsedMetric
-    ]
+    parser = argparse.ArgumentParser(description='Capture and push custom cloudwatch metrics')
+    parser.add_argument('-d', '--disk-used', dest='disk_used', action='store_true', help='Capture the highest usage level of all disks in use by this machine')
+    args = parser.parse_args()
 
-    for metric in metrics_to_capture:
+    metrics = []
+    
+    if args.disk_used:
+        metrics.append(MaxDiskUsedMetric)
+
+    for metric in metrics:
         metric.capture()
