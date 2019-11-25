@@ -9,23 +9,22 @@ INSTANCE_ID = requests.get('http://169.254.169.254/latest/meta-data/instance-id'
 
 
 class Metric(object):
-    namespace = "YourNamespace"
     metric_name = "metric_name"
     metric_unit = "Your Unit"
 
     @classmethod
-    def capture(cls):
+    def capture(cls, namespace):
         value, dimensions = cls.get_metric_value_and_dimensions()
-        cls.put_metric_data(value, dimensions)
+        cls.put_metric_data(namespace, value, dimensions)
 
     @classmethod
-    def put_metric_data(cls, value, dimensions=None):
+    def put_metric_data(cls, namespace, value, dimensions=None):
         # Demensions defaults to an emtpy list if nothing has been supplied
         dimensions = dimensions or []
 
         cloudwatch = boto3.client('cloudwatch')
         cloudwatch.put_metric_data(
-            Namespace=cls.namespace,
+            Namespace=namespace,
             MetricData=[
                 {
                     'MetricName': cls.metric_name,
@@ -42,7 +41,6 @@ class Metric(object):
 
 
 class MaxDiskUsedMetric(Metric):
-    namespace = "Elation"
     metric_name = "disk_used_percent"
     metric_unit = "Percent"
 
@@ -92,6 +90,7 @@ class MaxDiskUsedMetric(Metric):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Capture and push custom cloudwatch metrics')
+    parser.add_argument('-n', '--namespace', dest='namespace', required=True, action='store', help='The namespace to log these metrics under')
     parser.add_argument('-d', '--disk-used', dest='disk_used', action='store_true', help='Capture the highest usage level of all disks in use by this machine')
     args = parser.parse_args()
 
@@ -101,4 +100,4 @@ if __name__ == "__main__":
         metrics.append(MaxDiskUsedMetric)
 
     for metric in metrics:
-        metric.capture()
+        metric.capture(namespace=args.namespace)
