@@ -6,21 +6,22 @@ In particular, this script adds support for reporting the % of space used by the
 
 # Usage
 
-Clone this repository:
+Download and install the script:
 
-`git clone git@github.com:ryanisnan/ec2-custom-metrics.git`
-
-Install the requirements:
-
-`virtualenv venv && source venv/bin/activate`
-`pip install -r requirements.txt`
+```
+curl -L -o ec2-custom-metrics.tar.gz https://github.com/ryanisnan/ec2-custom-metrics/archive/0.0.1.tar.gz
+mkdir ec2-custom-metrics
+tar xvzf ec2-custom-metrics.tar.gz --directory ec2-custom-metrics --strip-components 1 && cd ec2-custom-metrics
+chmod +x setup.sh && ./setup.sh
+```
 
 Test it:
-`python capture_metrics.py --namespace MyNamespace --disk-used`
+
+`source venv/bin/activate && python capture_metrics.py --namespace MyNamespace --disk-used`
 
 Set it on a cron:
 
-`*/5 * * * * python capture_metrics.py --namespace MyNamespace --disk-used`
+`*/5 * * * * source /path/to/venv/bin/activate && python /path/to/project/capture_metrics.py --namespace MyNamespace --disk-used`
 
 Assuming everything is set up correctly, metrics will start coming in:
 
