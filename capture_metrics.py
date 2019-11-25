@@ -5,9 +5,6 @@ import boto3
 import argparse
 
 
-INSTANCE_ID = requests.get('http://169.254.169.254/latest/meta-data/instance-id').text
-
-
 class Metric(object):
     metric_name = "metric_name"
     metric_unit = "Your Unit"
@@ -66,6 +63,11 @@ class MaxDiskUsedMetric(Metric):
             max_pct = pcts[0]
         except:
             max_pct = None
+        
+        try:
+            INSTANCE_ID = requests.get('http://169.254.169.254/latest/meta-data/instance-id').text
+        except requests.exceptions.RequestException:
+            raise Exception('Failed fetching EC2 instance ID')
 
         dimensions = [{
             'Name': 'InstanceId',
