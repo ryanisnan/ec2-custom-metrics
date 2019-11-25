@@ -7,7 +7,7 @@ import argparse
 
 try:
     response = requests.get('http://169.254.169.254/latest/dynamic/instance-identity/document', timeout=5)
-    AWS_REGION = requests.json().get('region')
+    AWS_REGION = response.json().get('region')
 except:
     raise Exception('Could not fetch the AWS region from AWS')
 
