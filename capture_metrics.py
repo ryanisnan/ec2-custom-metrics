@@ -5,6 +5,13 @@ import boto3
 import argparse
 
 
+try:
+    response = requests.get('http://169.254.169.254/latest/dynamic/instance-identity/document', timeout=5)
+    AWS_REGION = requests.json().get('region')
+except:
+    raise Exception('Could not fetch the AWS region from AWS')
+
+
 class Metric(object):
     metric_name = "metric_name"
     metric_unit = "Your Unit"
@@ -19,7 +26,7 @@ class Metric(object):
         # Demensions defaults to an emtpy list if nothing has been supplied
         dimensions = dimensions or []
 
-        cloudwatch = boto3.client('cloudwatch')
+        cloudwatch = boto3.client('cloudwatch', region_name=AWS_REGION)
         cloudwatch.put_metric_data(
             Namespace=namespace,
             MetricData=[
