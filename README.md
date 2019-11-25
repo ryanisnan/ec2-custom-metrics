@@ -18,6 +18,10 @@ Set it on a cron:
 
 `*/5 * * * * AWS_DEFAULT_REGION=us-west-1 python capture_metrics.py`
 
+Assuming everything is set up correctly, metrics will start coming in:
+
+![Example screenshot of cloudwatch metrics of disk_used_percent](screenshot.png)
+
 # Todo
 
 - Make requirements not installed in a really stupid way
