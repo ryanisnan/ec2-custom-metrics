@@ -62,7 +62,8 @@ class MaxDiskUsedMetric(Metric):
 
         # Measure the available space on each partition
         for partition in partitions:
-            val = cls.get_path_used_percent(partition.mountpoint)
+            stat = os.statvfs(partition.mountpoint)
+            val = (1 - stat.f_bfree / float(stat.f_blocks)) * 100
             pcts.append(val)
             pcts.sort(reverse=True)
 
@@ -82,19 +83,6 @@ class MaxDiskUsedMetric(Metric):
         }]
 
         return (max_pct, dimensions)
-
-    @staticmethod
-    def get_path_used_percent(path):
-        """
-        Given a path, return a float representing the used percentage of the corresponding disk.
-
-        Args:
-            - string: Path to analyze
-        Returns:
-            - float: % of the disk used [0.0, 1.0]
-        """
-        stat = os.statvfs(path)
-        return (1 - stat.f_bfree / float(stat.f_blocks)) * 100
 
 
 if __name__ == "__main__":
