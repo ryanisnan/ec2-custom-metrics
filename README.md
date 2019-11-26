@@ -29,5 +29,4 @@ Assuming everything is set up correctly, metrics will start coming in:
 
 # Todo
 
-- Add a release .tar or .zip
 - Add memory usage metric
