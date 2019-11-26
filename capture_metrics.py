@@ -43,6 +43,13 @@ class Metric(object):
     def get_metric_value_and_dimensions(cls):
         raise NotImplementedError
 
+    @classmethod
+    def get_ec2_instance_id(cls):
+        try:
+            return requests.get('http://169.254.169.254/latest/meta-data/instance-id').text
+        except requests.exceptions.RequestException:
+            raise Exception('Failed fetching EC2 instance ID')
+
 
 class MaxDiskUsedMetric(Metric):
     metric_name = "disk_used_percent"
@@ -72,14 +79,27 @@ class MaxDiskUsedMetric(Metric):
         except:
             max_pct = None
         
-        try:
-            INSTANCE_ID = requests.get('http://169.254.169.254/latest/meta-data/instance-id').text
-        except requests.exceptions.RequestException:
-            raise Exception('Failed fetching EC2 instance ID')
-
         dimensions = [{
             'Name': 'InstanceId',
-            'Value': INSTANCE_ID
+            'Value': cls.get_ec2_instance_id()
+        }]
+
+        return (max_pct, dimensions)
+
+
+class MaxMemoryUsedMetric(Metric):
+    metric_name = "mem_used_percent"
+    metric_unit = "Percent"
+
+    @classmethod
+    def get_metric_value_and_dimensions(cls):
+        # TODO: Add logging
+        stats = psutil.virtual_memory()
+        max_pct = stats.percent
+        
+        dimensions = [{
+            'Name': 'InstanceId',
+            'Value': cls.get_ec2_instance_id()
         }]
 
         return (max_pct, dimensions)
@@ -89,12 +109,16 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Capture and push custom cloudwatch metrics')
     parser.add_argument('-n', '--namespace', dest='namespace', required=True, action='store', help='The namespace to log these metrics under')
     parser.add_argument('-d', '--disk-used', dest='disk_used', action='store_true', help='Capture the highest usage level of all disks in use by this machine')
+    parser.add_argument('-m', '--memory-used', dest='memory_used', action='store_true', help='Capture the % of memory used by the machine')
     args = parser.parse_args()
 
     metrics = []
     
     if args.disk_used:
         metrics.append(MaxDiskUsedMetric)
+    
+    if args.memory_used:
+        metrics.append(MaxMemoryUsedMetric)
 
     for metric in metrics:
         metric.capture(namespace=args.namespace)
