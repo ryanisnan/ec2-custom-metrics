@@ -3,6 +3,7 @@ import requests
 import os
 import boto3
 import argparse
+import platform
 
 
 try:
@@ -55,22 +56,27 @@ class MaxDiskUsedMetric(Metric):
         partitions = psutil.disk_partitions()
 
         # TODO: Add functionality driven by environment vars or other config to ignore certain partitions
+        FSTYPES_TO_IGNORE = ["squashfs"]
 
         # Keep a list of percentages full by each partition
         pcts = []
 
         # Measure the available space on each partition
         for partition in partitions:
+            if partition.fstype in FSTYPES_TO_IGNORE:
+                continue
+            
             stat = os.statvfs(partition.mountpoint)
             val = (1 - stat.f_bfree / float(stat.f_blocks)) * 100
             pcts.append(val)
-            pcts.sort(reverse=True)
+        
+        pcts.sort(reverse=True)
 
         try:
             max_pct = pcts[0]
         except:
             max_pct = None
-        
+
         return max_pct
 
 
@@ -87,6 +93,16 @@ class MaxMemoryUsedMetric(Metric):
         return max_pct
 
 
+class CPUUsedMetric(Metric):
+    metric_name = "cpu_used_percent"
+    metric_unit = "Percent"
+
+    @classmethod
+    def get_metric_value(cls):
+        # TODO: Add logging
+        return psutil.cpu_percent()
+
+
 def get_ec2_instance_id():
     # Return the current EC2 instance ID
     # TODO: Add some sort of file cache so we don't need to ask EC2 all the time
@@ -94,6 +110,10 @@ def get_ec2_instance_id():
         return requests.get('http://169.254.169.254/latest/meta-data/instance-id').text
     except requests.exceptions.RequestException:
         raise Exception('Failed fetching EC2 instance ID')
+
+
+def get_hostname():
+    return platform.node()
 
 
 def get_ec2_instance_tags(ec2_instance_id):
@@ -105,7 +125,7 @@ def get_ec2_instance_tags(ec2_instance_id):
     tags = {}
     for raw_tag in raw_tags:
         tags[raw_tag['Key']] = raw_tag['Value']
-    
+
     return tags
 
 
@@ -125,7 +145,7 @@ def build_dimensions_from_tags(tags_to_include, tags):
             'Name': tag_to_include,
             'Value': tags[tag_to_include]
         })
-    
+
     return dimensions
 
 
@@ -134,39 +154,36 @@ if __name__ == "__main__":
     parser.add_argument('-n', '--namespace', dest='namespace', required=True, action='store', help='The namespace to log these metrics under')
     parser.add_argument('-d', '--disk-used', dest='disk_used', action='store_true', help='Capture the highest usage level of all disks in use by this machine')
     parser.add_argument('-m', '--memory-used', dest='memory_used', action='store_true', help='Capture the % of memory used by the machine')
+    parser.add_argument('-m', '--cpu-used', dest='cpu_used', action='store_true', help='Capture the % of cpu used by the machine')
     parser.add_argument('--tags', dest='tags_to_include', action='store', help='The tags to include in the metrics for dimensions')
-    parser.add_argument('--include-instance-id-in-dimensions', dest='include_instance_id', action='store_true', help='Capture a separate metric with the instance id in the dimension')
+    parser.add_argument('--include-hostname', dest='include_hostname', action='store_true', help='Add the hostname as a dimension')
     args = parser.parse_args()
 
     metrics = []
-    
+
     if args.disk_used:
         metrics.append(MaxDiskUsedMetric)
-    
+
     if args.memory_used:
         metrics.append(MaxMemoryUsedMetric)
 
     ec2_instance_id = get_ec2_instance_id()
+    hostname = get_hostname()
     tags = get_ec2_instance_tags(ec2_instance_id)
 
     dimensions = build_dimensions_from_tags(args.tags_to_include, tags)
-    ec2_instance_dimensions = [{
-        'Name': 'InstanceId',
-        'Value': ec2_instance_id
-    }]
+
+    if args.include_hostname:
+        dimensions = dimensions + [{
+            'Name': 'Host',
+            'Value': hostname
+        }]
 
     for metric in metrics:
         value = metric.get_metric_value()
-    
+
         metric.capture(
             namespace=args.namespace,
             value=value,
-            dimensions=dimensions, 
+            dimensions=dimensions,
         )
-
-        if args.include_instance_id:
-            metric.capture(
-                namespace=args.namespace,
-                value=value,
-                dimensions=ec2_instance_dimensions
-            ) 
