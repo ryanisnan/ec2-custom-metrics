@@ -17,8 +17,7 @@ class Metric(object):
     metric_unit = "Your Unit"
 
     @classmethod
-    def capture(cls, namespace):
-        value, dimensions = cls.get_metric_value_and_dimensions()
+    def capture(cls, namespace, value, dimensions):
         cls.put_metric_data(namespace, value, dimensions)
 
     @classmethod
@@ -40,15 +39,8 @@ class Metric(object):
         )
 
     @classmethod
-    def get_metric_value_and_dimensions(cls):
+    def get_metric_value(cls):
         raise NotImplementedError
-
-    @classmethod
-    def get_ec2_instance_id(cls):
-        try:
-            return requests.get('http://169.254.169.254/latest/meta-data/instance-id').text
-        except requests.exceptions.RequestException:
-            raise Exception('Failed fetching EC2 instance ID')
 
 
 class MaxDiskUsedMetric(Metric):
@@ -56,7 +48,7 @@ class MaxDiskUsedMetric(Metric):
     metric_unit = "Percent"
 
     @classmethod
-    def get_metric_value_and_dimensions(cls):
+    def get_metric_value(cls):
         # TODO: Add logging
 
         # Partitions on the disk
@@ -79,12 +71,7 @@ class MaxDiskUsedMetric(Metric):
         except:
             max_pct = None
         
-        dimensions = [{
-            'Name': 'InstanceId',
-            'Value': cls.get_ec2_instance_id()
-        }]
-
-        return (max_pct, dimensions)
+        return max_pct
 
 
 class MaxMemoryUsedMetric(Metric):
@@ -92,17 +79,54 @@ class MaxMemoryUsedMetric(Metric):
     metric_unit = "Percent"
 
     @classmethod
-    def get_metric_value_and_dimensions(cls):
+    def get_metric_value(cls):
         # TODO: Add logging
         stats = psutil.virtual_memory()
         max_pct = stats.percent
-        
-        dimensions = [{
-            'Name': 'InstanceId',
-            'Value': cls.get_ec2_instance_id()
-        }]
 
-        return (max_pct, dimensions)
+        return max_pct
+
+
+def get_ec2_instance_id():
+    # Return the current EC2 instance ID
+    # TODO: Add some sort of file cache so we don't need to ask EC2 all the time
+    try:
+        return requests.get('http://169.254.169.254/latest/meta-data/instance-id').text
+    except requests.exceptions.RequestException:
+        raise Exception('Failed fetching EC2 instance ID')
+
+
+def get_ec2_instance_tags(ec2_instance_id):
+    # Return a dict of tags and values for the current EC2 instance
+    # TODO: Add some sort of file cache so we don't need to ask EC2 all the time
+    ec2 = boto3.client('ec2', region_name=AWS_REGION)
+    raw_tags = ec2.describe_tags(Filters=[{'Name': 'resource-id', 'Values':[ec2_instance_id]}]).get('Tags', [])
+
+    tags = {}
+    for raw_tag in raw_tags:
+        tags[raw_tag['Key']] = raw_tag['Value']
+    
+    return tags
+
+
+def build_dimensions_from_tags(tags_to_include, tags):
+    dimensions = []
+
+    if not tags_to_include:
+        return dimensions
+
+    for tag_to_include in tags_to_include.split(','):
+        tag_to_include = tag_to_include.strip()
+
+        if not tag_to_include:
+            continue
+
+        dimensions.append({
+            'Name': tag_to_include,
+            'Value': tags[tag_to_include]
+        })
+    
+    return dimensions
 
 
 if __name__ == "__main__":
@@ -110,6 +134,8 @@ if __name__ == "__main__":
     parser.add_argument('-n', '--namespace', dest='namespace', required=True, action='store', help='The namespace to log these metrics under')
     parser.add_argument('-d', '--disk-used', dest='disk_used', action='store_true', help='Capture the highest usage level of all disks in use by this machine')
     parser.add_argument('-m', '--memory-used', dest='memory_used', action='store_true', help='Capture the % of memory used by the machine')
+    parser.add_argument('--tags', dest='tags_to_include', action='store', help='The tags to include in the metrics for dimensions')
+    parser.add_argument('--include-instance-id-in-dimensions', dest='include_instance_id', action='store_true', help='Capture a separate metric with the instance id in the dimension')
     args = parser.parse_args()
 
     metrics = []
@@ -120,5 +146,27 @@ if __name__ == "__main__":
     if args.memory_used:
         metrics.append(MaxMemoryUsedMetric)
 
+    ec2_instance_id = get_ec2_instance_id()
+    tags = get_ec2_instance_tags(ec2_instance_id)
+
+    dimensions = build_dimensions_from_tags(args.tags_to_include, tags)
+    ec2_instance_dimensions = [{
+        'Name': 'InstanceId',
+        'Value': ec2_instance_id
+    }]
+
     for metric in metrics:
-        metric.capture(namespace=args.namespace)
+        value = metric.get_metric_value()
+    
+        metric.capture(
+            namespace=args.namespace,
+            value=value,
+            dimensions=dimensions, 
+        )
+
+        if args.include_instance_id:
+            metric.capture(
+                namespace=args.namespace,
+                value=value,
+                dimensions=ec2_instance_dimensions
+            ) 
