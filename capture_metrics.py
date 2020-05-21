@@ -154,7 +154,7 @@ if __name__ == "__main__":
     parser.add_argument('-n', '--namespace', dest='namespace', required=True, action='store', help='The namespace to log these metrics under')
     parser.add_argument('-d', '--disk-used', dest='disk_used', action='store_true', help='Capture the highest usage level of all disks in use by this machine')
     parser.add_argument('-m', '--memory-used', dest='memory_used', action='store_true', help='Capture the % of memory used by the machine')
-    parser.add_argument('-m', '--cpu-used', dest='cpu_used', action='store_true', help='Capture the % of cpu used by the machine')
+    parser.add_argument('-c', '--cpu-used', dest='cpu_used', action='store_true', help='Capture the % of cpu used by the machine')
     parser.add_argument('--tags', dest='tags_to_include', action='store', help='The tags to include in the metrics for dimensions')
     parser.add_argument('--include-hostname', dest='include_hostname', action='store_true', help='Add the hostname as a dimension')
     args = parser.parse_args()
