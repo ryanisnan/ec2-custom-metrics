@@ -166,6 +166,9 @@ if __name__ == "__main__":
 
     if args.memory_used:
         metrics.append(MaxMemoryUsedMetric)
+    
+    if args.cpu_used:
+        metrics.append(CPUUsedMetric)
 
     ec2_instance_id = get_ec2_instance_id()
     hostname = get_hostname()
