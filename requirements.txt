@@ -1,4 +1,4 @@
 boto3==1.10.26
 psutil==5.6.6
 requests2==2.16.0
-wheel==0.34.2
+wheel==0.38.1
